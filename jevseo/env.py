@@ -1,8 +1,7 @@
 """Secret lookup. Values are returned to callers, never printed or written.
 
 Order: the process environment, then the first env file that defines the name, among
-$JEVSEO_ENV_FILE, ./.env in the working directory, .env in this repository,
-and ~/Desktop/Keys/.env (the author's local layout).
+$JEVSEO_ENV_FILE, ./.env in the working directory, .env in this repository.
 """
 from __future__ import annotations
 
@@ -16,7 +15,7 @@ def key_files() -> list[Path]:
     files = []
     if os.environ.get("JEVSEO_ENV_FILE"):
         files.append(Path(os.environ["JEVSEO_ENV_FILE"]).expanduser())
-    files += [Path.cwd() / ".env", REPO / ".env", Path.home() / "Desktop" / "Keys" / ".env"]
+    files += [Path.cwd() / ".env", REPO / ".env"]
     return files
 
 
