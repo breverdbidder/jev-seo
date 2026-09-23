@@ -25,6 +25,7 @@ jobs:
       - name: Audit 5 sites (keyed PSI, no Jev, no DataForSEO)
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
           set -e
           for site in biddeed.ai zonewise.ai everestcapitalusa.com thepearlvacationhomes.com winnerdataai.com; do
