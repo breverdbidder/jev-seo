@@ -48,7 +48,14 @@ def run_one(url: str, strategy: str, key: str | None) -> dict:
     except requests.RequestException as err:
         return {"url": url, "strategy": strategy, "error": type(err).__name__}
     if r.status_code != 200:
-        return {"url": url, "strategy": strategy, "error": f"HTTP {r.status_code}"}
+        detail = ""
+        try:
+            err = r.json().get("error", {})
+            detail = err.get("message") or err.get("status") or ""
+        except ValueError:
+            detail = ""
+        note = f"HTTP {r.status_code}" + (f": {detail[:300]}" if detail else "")
+        return {"url": url, "strategy": strategy, "error": note}
     data = r.json()
     lh = data.get("lighthouseResult", {})
     audits = lh.get("audits", {})
