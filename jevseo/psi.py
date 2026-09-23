@@ -6,6 +6,7 @@ load. The report keeps the two apart.
 """
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -25,6 +26,25 @@ THRESHOLDS = {
 LAB = {"largest-contentful-paint": "LCP", "cumulative-layout-shift": "CLS", "total-blocking-time": "TBT", "first-contentful-paint": "FCP", "speed-index": "Speed Index"}
 
 
+def _bearer_token(sa_json: str, log=print) -> str | None:
+    """Mint a short-lived OAuth2 access token from a service-account JSON key.
+
+    Google is retiring API-key auth on PageSpeed Insights; an OAuth2 access
+    token asserts a principal and is accepted. The SA needs no IAM roles -
+    identity only - and PSI must be enabled in the SA's project.
+    """
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2 import service_account
+
+        creds = service_account.Credentials.from_service_account_info(json.loads(sa_json), scopes=["openid"])
+        creds.refresh(Request())
+        return creds.token
+    except Exception as err:  # bad JSON, missing dep, network - fall back to API key
+        log(f"PageSpeed service-account auth failed ({type(err).__name__}: {str(err)[:200]}) - falling back to API key")
+        return None
+
+
 def _field(block: dict | None) -> dict | None:
     if not block or not block.get("metrics"):
         return None
@@ -39,16 +59,26 @@ def _field(block: dict | None) -> dict | None:
     return {"overall": block.get("overall_category"), "metrics": out}
 
 
-def run_one(url: str, strategy: str, key: str | None) -> dict:
+def run_one(url: str, strategy: str, key: str | None, token: str | None = None) -> dict:
     params = [("url", url), ("strategy", strategy)] + [("category", c) for c in CATEGORIES]
-    if key:
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    elif key:
         params.append(("key", key))
     try:
-        r = requests.get(API, params=params, timeout=120)
+        r = requests.get(API, params=params, headers=headers, timeout=120)
     except requests.RequestException as err:
         return {"url": url, "strategy": strategy, "error": type(err).__name__}
     if r.status_code != 200:
-        return {"url": url, "strategy": strategy, "error": f"HTTP {r.status_code}"}
+        detail = ""
+        try:
+            err = r.json().get("error", {})
+            detail = err.get("message") or err.get("status") or ""
+        except ValueError:
+            detail = ""
+        note = f"HTTP {r.status_code}" + (f": {detail[:300]}" if detail else "")
+        return {"url": url, "strategy": strategy, "error": note}
     data = r.json()
     lh = data.get("lighthouseResult", {})
     audits = lh.get("audits", {})
@@ -75,10 +105,13 @@ def run_one(url: str, strategy: str, key: str | None) -> dict:
 
 def run(urls: list[str], log=print) -> dict:
     key = secret("PAGESPEED_API_KEY")
+    token = _bearer_token(secret("GCP_SA_KEY"), log) if secret("GCP_SA_KEY") else None
+    auth = "service_account" if token else "api_key" if key else "none"
+    log(f"PageSpeed auth: {auth}")
     jobs = [(u, s) for u in urls for s in ("mobile", "desktop")]
     results = []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(run_one, u, s, key): (u, s) for u, s in jobs}
+        futures = {pool.submit(run_one, u, s, key, token): (u, s) for u, s in jobs}
         for fut in as_completed(futures):
             r = fut.result()
             results.append(r)
@@ -87,4 +120,4 @@ def run(urls: list[str], log=print) -> dict:
     results.sort(key=lambda r: (jobs.index((r["url"], r["strategy"]))))
     ok = sum(1 for r in results if "error" not in r)
     log(f"PageSpeed Insights: {ok}/{len(results)} runs succeeded")
-    return {"source": "https://developers.google.com/speed/docs/insights/v5/get-started", "keyed": bool(key), "runs": results}
+    return {"source": "https://developers.google.com/speed/docs/insights/v5/get-started", "keyed": bool(key or token), "auth": auth, "runs": results}
