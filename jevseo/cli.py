@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from jevseo import VERSION
+from jevseo.redact import redact
 
 STAGES = ["Crawl", "Rule checks", "DataForSEO", "Jev judgments", "PageSpeed", "Scoring", "Render"]
 T0 = time.monotonic()
@@ -116,6 +117,7 @@ def audit(args) -> Path:
         "scores": scores,
         "actions": acts,
     }
+    data = redact(data)
     (out / "audit.json").write_text(json.dumps(data, indent=1, default=str))
     (out / "digest.md").write_text(digest(data))
     log(f"audit written: {out / 'audit.json'}")
@@ -232,6 +234,7 @@ def rescore(args) -> None:
     d["scores"] = score.score(site, findings, d["jev"], d.get("performance"), d.get("dataforseo"))
     d["actions"] = score.actions(findings, d["jev"], len(checks.html_pages(site)))
     d["run"]["rescored_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    d = redact(d)
     (folder / "audit.json").write_text(json.dumps(d, indent=1, default=str))
     (folder / "digest.md").write_text(digest(d))
     log(f"rescored: {d['scores']['overall']} ({d['scores']['grade']}), {len(d['actions'])} actions. Action IDs may have changed; re-check narrative.json.")
