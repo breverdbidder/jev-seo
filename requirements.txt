@@ -1,5 +1,6 @@
 beautifulsoup4==4.15.0
 brotli==1.2.0
+cachetools==7.2.0
 certifi==2026.7.22
 cffi==2.1.1
 charset-normalizer==3.5.1
@@ -8,6 +9,7 @@ cssselect2==0.10.1
 cycler==0.12.1
 et_xmlfile==2.0.0
 fonttools==4.65.0
+google-auth==2.58.0
 idna==3.20
 Jinja2==3.1.6
 kiwisolver==1.5.1
@@ -18,12 +20,14 @@ numpy==2.2.6
 openpyxl==3.1.5
 packaging==26.3
 pillow==12.3.0
+pyasn1-modules==0.4.2
 pycparser==3.0
 pydyf==0.12.1
 pyparsing==3.3.3
 pyphen==0.18.1
 python-dateutil==2.9.0.post0
 requests==2.34.2
+rsa==4.9.1
 six==1.17.0
 soupsieve==2.9.2
 tinycss2==1.5.1
