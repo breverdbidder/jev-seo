@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 from jevseo.env import secret
+from jevseo.sa_key import load_sa_info
 
 API = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 CATEGORIES = ["performance", "accessibility", "best-practices", "seo"]
@@ -37,7 +38,7 @@ def _bearer_token(sa_json: str, log=print) -> str | None:
         from google.auth.transport.requests import Request
         from google.oauth2 import service_account
 
-        creds = service_account.Credentials.from_service_account_info(json.loads(sa_json), scopes=["openid"])
+        creds = service_account.Credentials.from_service_account_info(load_sa_info(sa_json), scopes=["openid"])
         creds.refresh(Request())
         return creds.token
     except Exception as err:  # bad JSON, missing dep, network - fall back to API key
